@@ -1,19 +1,34 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 from typing import TYPE_CHECKING
 
+import aiofiles
+import aiofiles.os as aios
 import gidgethub
 import gidgethub.httpx
 import httpx
+import pygit2
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
 
 
 logger = logging.getLogger(__name__)
+
+
+async def clone_repo(clone_url: str, target_dir: str, *, loop=None):
+    loop = loop or asyncio.get_running_loop()
+
+    logger.info("Cloning repository %s in %s", clone_url, target_dir)
+    repo = await loop.run_in_executor(
+        None, functools.partial(pygit2.clone_repository, clone_url, target_dir)
+    )
+
+    logger.debug(repo.path)
 
 
 async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
@@ -57,6 +72,12 @@ async def main(username: str, token: str, owner: str, repository_name: str):
 
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
         logger.debug(forked_repo["full_name"])
+
+    async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
+        await clone_repo(forked_repo["clone_url"], temp_dir)
+
+        # FIXME: Find config file
+        assert await aios.path.isfile(os.path.join(temp_dir, ".readthedocs.yml"))
 
 
 if __name__ == "__main__":
