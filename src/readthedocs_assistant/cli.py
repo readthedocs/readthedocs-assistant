@@ -92,6 +92,8 @@ async def main(username: str, token: str, owner: str, repository_name: str):
         logger.debug(forked_repo["full_name"])
 
     async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
+        # TODO: Do we need a local clone?
+        # https://github3.readthedocs.io/en/latest/examples/github.html#create-a-commit-to-change-an-existing-file
         await clone_repo(forked_repo["clone_url"], temp_dir)
 
         config_file = find_config(temp_dir)
