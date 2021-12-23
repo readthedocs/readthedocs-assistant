@@ -20,6 +20,10 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
+dependencies = [
+    "gidgethub",
+    "httpx",
+]
 dynamic = ["version", "description"]
 
 [tool.flit.module]
@@ -34,6 +38,7 @@ documentation = "https://readthedocs-assistant.readthedocs.io"
 test = [
     "hypothesis",
     "pytest",
+    "pytest-asyncio",
     "pytest-cov",
     "pytest-mypy",
 ]
