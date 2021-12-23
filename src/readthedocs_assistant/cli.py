@@ -42,7 +42,7 @@ async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
             logger.info("Does not exist yet, retrying")
             await asyncio.sleep(5)
         else:
-            logging.info(f"{forked_repo['full_name']} created")
+            logging.info("%s created", forked_repo["full_name"])
             break
 
     return forked_repo
@@ -53,7 +53,7 @@ async def main(username: str, token: str, owner: str, repository_name: str):
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
 
         all_repos = gh.getiter("/user/repos")
-        logger.debug(f"{len([r async for r in all_repos])} repos found")
+        logger.debug("%d repos found", len([r async for r in all_repos]))
 
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
         logger.debug(forked_repo["full_name"])
