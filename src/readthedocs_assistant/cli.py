@@ -13,10 +13,10 @@ if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
 
 
-async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
-    all_repos = gh.getiter("/user/repos")
-    logging.debug(f"{len([r async for r in all_repos])} repos found")
+logger = logging.getLogger(__name__)
 
+
+async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
     # Create fork
     try:
         await gh.post(f"/repos/{owner}/{repository_name}/forks", data={})
@@ -39,7 +39,7 @@ async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
             # The doc says "You may have to wait a short period of time
             # before you can access the git objects",
             # but perhaps the repository object is available immediately
-            logging.info("Does not exist yet, retrying")
+            logger.info("Does not exist yet, retrying")
             await asyncio.sleep(5)
         else:
             logging.info(f"{forked_repo['full_name']} created")
@@ -52,8 +52,11 @@ async def main(username: str, token: str, owner: str, repository_name: str):
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
 
+        all_repos = gh.getiter("/user/repos")
+        logger.debug(f"{len([r async for r in all_repos])} repos found")
+
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
-        logging.debug(forked_repo["full_name"])
+        logger.debug(forked_repo["full_name"])
 
 
 if __name__ == "__main__":
