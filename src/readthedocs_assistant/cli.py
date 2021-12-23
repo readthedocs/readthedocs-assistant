@@ -4,10 +4,10 @@ import asyncio
 import functools
 import logging
 import os
+import re
 from typing import TYPE_CHECKING
 
 import aiofiles
-import aiofiles.os as aios
 import gidgethub
 import gidgethub.httpx
 import httpx
@@ -18,6 +18,24 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+# https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
+CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
+
+
+# https://github.com/readthedocs/readthedocs.org/blob/bc3e1477/readthedocs/config/find.py#L9-L16
+def find_one(path, filename_regex):
+    """Find the first file in ``path`` that match ``filename_regex`` regex."""
+    _path = os.path.abspath(path)
+    for filename in os.listdir(_path):
+        if re.match(filename_regex, filename):
+            return os.path.join(_path, filename)
+
+    return ""
+
+
+find_config = functools.partial(find_one, filename_regex=CONFIG_FILENAME_REGEX)
 
 
 async def clone_repo(clone_url: str, target_dir: str, *, loop=None):
@@ -76,8 +94,12 @@ async def main(username: str, token: str, owner: str, repository_name: str):
     async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
         await clone_repo(forked_repo["clone_url"], temp_dir)
 
-        # FIXME: Find config file
-        assert await aios.path.isfile(os.path.join(temp_dir, ".readthedocs.yml"))
+        config_file = find_config(temp_dir)
+        logger.debug(config_file)
+        assert config_file
+
+        # TODO: Validate schema
+        # https://github.com/readthedocs/readthedocs.org/blob/master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json
 
 
 if __name__ == "__main__":
