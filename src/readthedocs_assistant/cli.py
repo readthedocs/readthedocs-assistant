@@ -49,6 +49,7 @@ async def find_config(repo: Any, *, gh: GitHubAPI) -> Any:
 
     for item in tree["tree"]:
         if item["type"] == "blob" and re.match(CONFIG_FILENAME_REGEX, item["path"]):
+            # TODO: Error early if there are more than one config files
             return item
 
 
@@ -79,6 +80,9 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
             await load_contents(forked_repo, config_item["path"], gh=gh), Loader=Loader
         )
         logger.info(config)
+
+        # TODO: Validate schema
+        # https://github.com/readthedocs/readthedocs.org/blob/master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json
 
 
 if __name__ == "__main__":
