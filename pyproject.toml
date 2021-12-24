@@ -39,10 +39,10 @@ documentation = "https://readthedocs-assistant.readthedocs.io"
 [project.optional-dependencies]
 test = [
     "hypothesis",
+    "mypy",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "pytest-mypy",
 ]
 doc = [
     "furo",
@@ -52,8 +52,3 @@ doc = [
 
 [tool.isort]
 profile = "black"
-
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
