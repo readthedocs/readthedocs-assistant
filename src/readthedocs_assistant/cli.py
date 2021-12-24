@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import gidgethub
 import gidgethub.httpx
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
 
 
-async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
+async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI) -> Any:
     # Create fork
     try:
         await gh.post(f"/repos/{owner}/{repository_name}/forks", data={})
@@ -67,7 +67,7 @@ async def find_config(repo: Any, *, gh: GitHubAPI) -> Any:
             return item
 
 
-async def main(username: str, token: str, owner: str, repository_name: str):
+async def main(username: str, token: str, owner: str, repository_name: str) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
 
