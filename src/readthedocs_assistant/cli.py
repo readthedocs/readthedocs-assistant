@@ -33,25 +33,8 @@ async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI) -> Any:
         if exc.status_code != 202:
             raise
 
-    # Retrieve forked project
-    while True:
-        try:
-            # Idempotent, if it already exists, doesn't do anything
-            # +gh_repo
-            forked_repo = await gh.getitem(
-                f"/repos/readthedocs-assistant/{repository_name}"
-            )
-        except gidgethub.BadRequest:
-            # TODO: Is this necessary?
-            # The doc says "You may have to wait a short period of time
-            # before you can access the git objects",
-            # but perhaps the repository object is available immediately
-            logger.info("Does not exist yet, retrying")
-            await asyncio.sleep(5)
-        else:
-            logging.info("%s created", forked_repo["full_name"])
-            break
-
+    forked_repo = await gh.getitem(f"/repos/readthedocs-assistant/{repository_name}")
+    logger.debug(forked_repo)
     return forked_repo
 
 
@@ -87,7 +70,7 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         logger.debug("%d repos found", len([r async for r in all_repos]))
 
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
-        logger.debug(forked_repo["full_name"])
+        logging.info("%s created", forked_repo["full_name"])
 
         config_item = await find_config(forked_repo, gh=gh)
         assert config_item
