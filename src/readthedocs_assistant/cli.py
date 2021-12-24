@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 import re
@@ -9,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import gidgethub
 import gidgethub.httpx
 import httpx
+from yaml import Loader, load
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
@@ -67,6 +69,16 @@ async def find_config(repo: Any, *, gh: GitHubAPI) -> Any:
             return item
 
 
+async def load_contents(
+    repo: Any, path: str, encoding: str = "utf-8", *, gh: GitHubAPI
+) -> str:
+    file_contents = await gh.getitem(f"/repos/{repo['full_name']}/contents/{path}")
+    content = base64.b64decode(file_contents["content"].encode("ascii")).decode(
+        encoding
+    )
+    return content
+
+
 async def main(username: str, token: str, owner: str, repository_name: str) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
@@ -80,16 +92,14 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         config_item = await find_config(forked_repo, gh=gh)
         assert config_item
 
-        config_file = find_config(temp_dir)
-        logger.debug(config_file)
-        assert config_file
-
-        # TODO: Validate schema
-        # https://github.com/readthedocs/readthedocs.org/blob/master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json
+        config = load(
+            await load_contents(forked_repo, config_item["path"], gh=gh), Loader=Loader
+        )
+        logger.info(config)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     # For testing purposes
     asyncio.run(

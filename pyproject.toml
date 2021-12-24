@@ -22,6 +22,8 @@ classifiers = [
 dependencies = [
     "gidgethub",
     "httpx",
+    "pyyaml",
+    "types-PyYAML",
 ]
 requires-python = ">=3.8"
 dynamic = ["version", "description"]
