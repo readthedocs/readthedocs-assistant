@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import logging
 import os
 import re
 from typing import TYPE_CHECKING
 
-import aiofiles
 import gidgethub
 import gidgethub.httpx
 import httpx
-import pygit2
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
@@ -22,31 +19,6 @@ logger = logging.getLogger(__name__)
 
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
-
-
-# https://github.com/readthedocs/readthedocs.org/blob/bc3e1477/readthedocs/config/find.py#L9-L16
-def find_one(path, filename_regex):
-    """Find the first file in ``path`` that match ``filename_regex`` regex."""
-    _path = os.path.abspath(path)
-    for filename in os.listdir(_path):
-        if re.match(filename_regex, filename):
-            return os.path.join(_path, filename)
-
-    return ""
-
-
-find_config = functools.partial(find_one, filename_regex=CONFIG_FILENAME_REGEX)
-
-
-async def clone_repo(clone_url: str, target_dir: str, *, loop=None):
-    loop = loop or asyncio.get_running_loop()
-
-    logger.info("Cloning repository %s in %s", clone_url, target_dir)
-    repo = await loop.run_in_executor(
-        None, functools.partial(pygit2.clone_repository, clone_url, target_dir)
-    )
-
-    logger.debug(repo.path)
 
 
 async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
@@ -81,6 +53,20 @@ async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI):
     return forked_repo
 
 
+async def find_config(repo: Any, *, gh: GitHubAPI) -> Any:
+    default_branch = await gh.getitem(
+        f"/repos/{repo['full_name']}/branches/{repo['default_branch']}"
+    )
+
+    tip_sha = default_branch["commit"]["sha"]
+    tree = await gh.getitem(f"/repos/{repo['full_name']}/git/trees/{tip_sha}")
+    logger.debug(tree)
+
+    for item in tree["tree"]:
+        if item["type"] == "blob" and re.match(CONFIG_FILENAME_REGEX, item["path"]):
+            return item
+
+
 async def main(username: str, token: str, owner: str, repository_name: str):
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
@@ -91,10 +77,8 @@ async def main(username: str, token: str, owner: str, repository_name: str):
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
         logger.debug(forked_repo["full_name"])
 
-    async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
-        # TODO: Do we need a local clone?
-        # https://github3.readthedocs.io/en/latest/examples/github.html#create-a-commit-to-change-an-existing-file
-        await clone_repo(forked_repo["clone_url"], temp_dir)
+        config_item = await find_config(forked_repo, gh=gh)
+        assert config_item
 
         config_file = find_config(temp_dir)
         logger.debug(config_file)
