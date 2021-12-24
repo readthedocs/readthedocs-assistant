@@ -20,10 +20,10 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "aiofiles",
     "gidgethub",
     "httpx",
-    "pygit2",
+    "pyyaml",
+    "types-PyYAML",
 ]
 requires-python = ">=3.8"
 dynamic = ["version", "description"]
@@ -39,10 +39,10 @@ documentation = "https://readthedocs-assistant.readthedocs.io"
 [project.optional-dependencies]
 test = [
     "hypothesis",
+    "mypy",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "pytest-mypy",
 ]
 doc = [
     "furo",
@@ -52,8 +52,3 @@ doc = [
 
 [tool.isort]
 profile = "black"
-
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
