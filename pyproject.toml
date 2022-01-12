@@ -21,6 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "gidgethub",
+    "jsonschema",
     "httpx",
     "pyyaml",
     "types-PyYAML",

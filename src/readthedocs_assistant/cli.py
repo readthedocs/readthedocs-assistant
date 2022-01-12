@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import gidgethub
 import gidgethub.httpx
 import httpx
+from jsonschema import validate
 from yaml import Loader, load
 
 if TYPE_CHECKING:
@@ -21,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
+
+# https://www.schemastore.org/json/
+SCHEMA_URL = (
+    "https://raw.githubusercontent.com/readthedocs/readthedocs.org/"
+    "master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json"
+)
 
 
 async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI) -> Any:
@@ -63,6 +70,17 @@ async def load_contents(
     return content
 
 
+async def validate_config(
+    config: Any, schema_url: str = SCHEMA_URL, *, client: httpx.AsyncClient
+) -> None:
+    resp_schema = await client.get(SCHEMA_URL)
+    resp_schema.raise_for_status()
+    schema = resp_schema.json()
+    logger.debug(schema)
+
+    validate(instance=config, schema=schema)
+
+
 async def main(username: str, token: str, owner: str, repository_name: str) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
@@ -71,7 +89,7 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         logger.debug("%d repos found", len([r async for r in all_repos]))
 
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
-        logging.info("%s created", forked_repo["full_name"])
+        logger.info("%s created", forked_repo["full_name"])
 
         config_item = await find_config(forked_repo, gh=gh)
         assert config_item
@@ -81,12 +99,14 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         )
         logger.info(config)
 
-        # TODO: Validate schema
-        # https://github.com/readthedocs/readthedocs.org/blob/master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json
+        await validate_config(config, client=client)
+
+        # At this point, the repository is forked and the configuration is validated
+        # and we can do whatever change we want to do
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     # For testing purposes
     asyncio.run(
