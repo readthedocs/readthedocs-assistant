@@ -5,13 +5,16 @@ import base64
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import gidgethub
 import gidgethub.httpx
 import httpx
 from jsonschema import validate
 from yaml import Loader, load
+
+from .migrators import use_build_tools
+from .types import RTDConfig
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
@@ -72,13 +75,15 @@ async def load_contents(
 
 async def validate_config(
     config: Any, schema_url: str = SCHEMA_URL, *, client: httpx.AsyncClient
-) -> None:
+) -> RTDConfig:
     resp_schema = await client.get(SCHEMA_URL)
     resp_schema.raise_for_status()
     schema = resp_schema.json()
     logger.debug(schema)
 
     validate(instance=config, schema=schema)
+
+    return cast(RTDConfig, config)
 
 
 async def main(username: str, token: str, owner: str, repository_name: str) -> None:
@@ -94,19 +99,23 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         config_item = await find_config(forked_repo, gh=gh)
         assert config_item
 
-        config = load(
+        unvalidated_config = load(
             await load_contents(forked_repo, config_item["path"], gh=gh), Loader=Loader
         )
-        logger.info(config)
-
-        await validate_config(config, client=client)
+        config = await validate_config(unvalidated_config, client=client)
 
         # At this point, the repository is forked and the configuration is validated
         # and we can do whatever change we want to do
+        logger.info("Current config: %s", config)
+
+        # For example, migrate to build.tools
+        new_config = await use_build_tools(config)
+
+        logger.info("New config: %s", new_config)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     # For testing purposes
     asyncio.run(
