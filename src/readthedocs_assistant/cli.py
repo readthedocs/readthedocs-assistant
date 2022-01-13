@@ -5,16 +5,15 @@ import base64
 import logging  # TODO: Migrate to structlog
 import os
 import re
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import gidgethub
 import gidgethub.httpx
 import httpx
-from jsonschema import validate
 from yaml import Loader, load
 
 from .migrators import use_build_tools
-from .types import RTDConfig
+from .validation import validate_config
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
@@ -22,15 +21,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
-
-# https://www.schemastore.org/json/
-SCHEMA_URL = (
-    "https://raw.githubusercontent.com/readthedocs/readthedocs.org/"
-    "master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json"
-)
 
 
 async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI) -> Any:
@@ -71,19 +63,6 @@ async def load_contents(
         encoding
     )
     return content
-
-
-async def validate_config(
-    config: Any, schema_url: str = SCHEMA_URL, *, client: httpx.AsyncClient
-) -> RTDConfig:
-    resp_schema = await client.get(SCHEMA_URL)
-    resp_schema.raise_for_status()
-    schema = resp_schema.json()
-    logger.debug(schema)
-
-    validate(instance=config, schema=schema)
-
-    return cast(RTDConfig, config)
 
 
 async def main(username: str, token: str, owner: str, repository_name: str) -> None:
