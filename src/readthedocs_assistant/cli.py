@@ -42,13 +42,10 @@ async def fork_repo(repo: Any, *, gh: GitHubAPI) -> Any:
     return forked_repo
 
 
-async def find_config(repo: Any, *, gh: GitHubAPI) -> Any:
-    default_branch = await gh.getitem(
-        f"/repos/{repo['full_name']}/branches/{repo['default_branch']}"
+async def find_config(repo: Any, branch: Any, *, gh: GitHubAPI) -> Any:
+    tree = await gh.getitem(
+        f"/repos/{repo['full_name']}/git/trees/{branch['commit']['sha']}"
     )
-
-    tip_sha = default_branch["commit"]["sha"]
-    tree = await gh.getitem(f"/repos/{repo['full_name']}/git/trees/{tip_sha}")
     logger.debug(tree)
 
     for item in tree["tree"]:
@@ -85,7 +82,12 @@ async def main(
         target_repo = await gh.getitem(f"/repos/{owner}/{repository_name}")
         logger.debug("Analyzing repository %s", target_repo["full_name"])
 
-        config_item = await find_config(target_repo, gh=gh)
+        default_branch = await gh.getitem(
+            f"/repos/{target_repo['full_name']}"
+            f"/branches/{target_repo['default_branch']}"
+        )
+
+        config_item = await find_config(target_repo, default_branch, gh=gh)
         assert config_item
 
         yaml_config = await load_contents(target_repo, config_item["path"], gh=gh)
