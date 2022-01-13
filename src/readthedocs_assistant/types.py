@@ -6,17 +6,15 @@ Formats = Literal["htmlzip", "pdf", "epub"]
 Tools = Literal["python", "nodejs", "rust", "golang"]
 
 
-class LegacyV2Build(TypedDict, total=False):
-    image: Literal["stable", "latest", "testing"]
-    apt_packages: list[str]
-
-
-class BaseV2Build(TypedDict):
+# This class mixes several possible specifications
+# depending on the configuration version,
+# but it turns out that crafting a proper specification
+# using Python TypedDict is not possible and also fraught with bugs
+# See https://github.com/python/mypy/issues/11988
+class Build(TypedDict, total=False):
     os: Literal["ubuntu-20.04"]
     tools: dict[Tools, str]
-
-
-class V2Build(BaseV2Build, total=False):
+    image: Literal["stable", "latest", "testing"]
     apt_packages: list[str]
 
 
@@ -39,5 +37,5 @@ class Python(TypedDict, total=False):
 class RTDConfig(TypedDict, total=False):
     version: int
     formats: list[Formats]
-    build: V2Build | LegacyV2Build  # FIXME: What about V1 build?
+    build: Build
     python: Python

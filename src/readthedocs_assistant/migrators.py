@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from .types import RTDConfig, V2Build
+from .types import RTDConfig
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +29,10 @@ async def use_build_tools(config: RTDConfig) -> tuple[RTDConfig, bool]:
     # From 4.0 onwards, the default Python version was 3.7
     python_version = config.get("python", {}).get("version", "3.7")
 
-    new_config["build"] = V2Build(
-        {
-            "os": "ubuntu-20.04",
-            "tools": {"python": python_version},
-        }
-    )
+    new_config["build"] = {
+        "os": "ubuntu-20.04",
+        "tools": {"python": python_version},
+    }
     if apt_packages := new_config.get("build", {}).get("apt_packages", []):
         new_config["build"]["apt_packages"] = apt_packages
 
