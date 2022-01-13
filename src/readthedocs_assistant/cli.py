@@ -5,13 +5,15 @@ import base64
 import logging  # TODO: Migrate to structlog
 import os
 import re
+from difflib import Differ
 from typing import TYPE_CHECKING, Any
 
 import gidgethub
 import gidgethub.httpx
 import httpx
-from yaml import Loader, load
+from yaml import Loader, dump, load
 
+from .io import RTDDumper
 from .migrators import use_build_tools
 from .validation import validate_config
 
@@ -65,7 +67,15 @@ async def load_contents(
     return content
 
 
-async def main(username: str, token: str, owner: str, repository_name: str) -> None:
+def compare_strings(s1: str, s2: str) -> str:
+    d = Differ()
+    result = d.compare(s1.splitlines(keepends=True), s2.splitlines(keepends=True))
+    return "".join(result)
+
+
+async def main(
+    username: str, token: str, owner: str, repository_name: str, dry_run: bool = True
+) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
 
@@ -78,9 +88,9 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         config_item = await find_config(target_repo, gh=gh)
         assert config_item
 
-        unvalidated_config = load(
-            await load_contents(target_repo, config_item["path"], gh=gh), Loader=Loader
-        )
+        yaml_config = await load_contents(target_repo, config_item["path"], gh=gh)
+
+        unvalidated_config = load(yaml_config, Loader=Loader)
         config = await validate_config(unvalidated_config)
 
         # At this point, the repository is forked and the configuration is validated
@@ -88,14 +98,6 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         logger.info("Current config: %s", config)
 
         # For example, migrate to build.tools
-
-        # Possibilities:
-        # 1. applied = False, migration was not applied because it was not necessary
-        # 2. applied = True, new_config == config
-        #    migration was applied but config didn't change
-        # 3. applied = True, new_config != config,
-        #    migration was applied and pull request is needed
-        # 4. MigrationError, the migration could not be applied
         new_config, applied = await use_build_tools(config)
 
         logger.info("New config: %s", new_config)
@@ -114,12 +116,18 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
                 "pull request is required"
             )
 
-            forked_repo = await fork_repo(target_repo, gh=gh)
-            logger.info("%s created", forked_repo["full_name"])
+            yaml_new_config = dump(new_config, Dumper=RTDDumper)
 
-            # TODO: Create pull request with message
-            # TODO: Add interactive/dry run mode to manually compare changes
-            # before opening pull request
+            if not dry_run:
+                forked_repo = await fork_repo(target_repo, gh=gh)
+                logger.info("%s created", forked_repo["full_name"])
+
+                # TODO: Commit contents to separate branch and push
+                # TODO: Create pull request with message
+            else:
+                logger.info(
+                    "Difference: \n%s", compare_strings(yaml_config, yaml_new_config)
+                )
 
 
 if __name__ == "__main__":
