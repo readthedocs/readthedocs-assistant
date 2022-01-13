@@ -34,6 +34,7 @@ from readthedocs_assistant.migrators import use_build_tools
 )
 @pytest.mark.asyncio
 async def test_use_build_tools_returns_expected_config(config, expected_config):
-    new_config = await use_build_tools(config)
+    new_config, applied = await use_build_tools(config)
 
     assert new_config == expected_config
+    assert applied

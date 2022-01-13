@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from .types import RTDConfig, V2Build
@@ -9,7 +11,7 @@ class MigrationError(RuntimeError):
     pass
 
 
-async def use_build_tools(config: RTDConfig) -> RTDConfig:
+async def use_build_tools(config: RTDConfig) -> tuple[RTDConfig, bool]:
     """Migrate to build.tools configuration
 
     See https://docs.readthedocs.io/en/latest/config-file/v2.html#build.
@@ -18,9 +20,8 @@ async def use_build_tools(config: RTDConfig) -> RTDConfig:
         raise MigrationError("Config uses V1, migrate to V2 first")
 
     if config.get("build", {}).get("tools"):
-        # TODO: Signal that nothing was done to avoid further action!
         logger.info("Config already contains build.tools, nothing to do")
-        return config
+        return config, False
 
     new_config = config.copy()
 
@@ -44,4 +45,4 @@ async def use_build_tools(config: RTDConfig) -> RTDConfig:
     if "python" in new_config and not new_config["python"]:
         new_config.pop("python")
 
-    return new_config
+    return new_config, True

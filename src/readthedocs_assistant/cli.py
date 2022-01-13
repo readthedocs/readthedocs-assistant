@@ -93,6 +93,7 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         all_repos = gh.getiter("/user/repos")
         logger.debug("%d repos found", len([r async for r in all_repos]))
 
+        # FIXME: Only fork repo if pull request is needed
         forked_repo = await fork_repo(owner, repository_name, gh=gh)
         logger.info("%s created", forked_repo["full_name"])
 
@@ -109,7 +110,15 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         logger.info("Current config: %s", config)
 
         # For example, migrate to build.tools
-        new_config = await use_build_tools(config)
+
+        # Possibilities:
+        # 1. applied = False, migration was not applied because it was not necessary
+        # 2. applied = True, new_config == config
+        #    migration was applied but config didn't change
+        # 3. applied = True, new_config != config,
+        #    migration was applied and pull request is needed
+        # 4. MigrationError, the migration could not be applied
+        new_config, applied = await use_build_tools(config)
 
         logger.info("New config: %s", new_config)
 
