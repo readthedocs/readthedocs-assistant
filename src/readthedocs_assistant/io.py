@@ -2,6 +2,7 @@ from yaml import Dumper
 
 # This list specifies the order in which the keys will appear in the config
 # We only care about primary ones, the inner ones will be sorted alphabetically
+# TODO: Make indentation configurable
 # TODO: Add one empty line after each config block?
 SORTED_KEYS = ["version", "build", "python", "conda", "sphinx", "formats"]
 
