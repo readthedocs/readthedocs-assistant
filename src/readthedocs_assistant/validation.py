@@ -19,16 +19,11 @@ SCHEMA_URL = (
 Schema = Dict[str, Any]
 
 
-async def _get_schema(
-    schema_url: str = SCHEMA_URL, client: httpx.AsyncClient | None = None
-) -> Schema:
-
-    if not client:
-        client = httpx.AsyncClient()
-
-    resp_schema = await client.get(SCHEMA_URL)
-    resp_schema.raise_for_status()
-    schema = resp_schema.json()
+async def _get_schema(schema_url: str = SCHEMA_URL) -> Schema:
+    async with httpx.AsyncClient() as client:
+        resp_schema = await client.get(SCHEMA_URL)
+        resp_schema.raise_for_status()
+        schema = resp_schema.json()
 
     return cast(Schema, schema)
 
