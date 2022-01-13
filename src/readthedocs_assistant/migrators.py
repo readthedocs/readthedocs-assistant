@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import logging
 
+import jsonschema
+
 from .types import RTDConfig
+from .validation import validate_config
 
 logger = logging.getLogger(__name__)
 
@@ -42,5 +45,13 @@ async def use_build_tools(config: RTDConfig) -> tuple[RTDConfig, bool]:
     # If python has no keys left, drop it altogether
     if "python" in new_config and not new_config["python"]:
         new_config.pop("python")
+
+    # Validate configuration before returning
+    try:
+        await validate_config(new_config)
+    except jsonschema.exceptions.ValidationError:
+        raise MigrationError(
+            "Produced configuration is invalid, this is an internal problem"
+        )
 
     return new_config, True
