@@ -6,10 +6,6 @@ Formats = Literal["htmlzip", "pdf", "epub"]
 Tools = Literal["python", "nodejs", "rust", "golang"]
 
 
-class BaseRTDConfig(TypedDict):
-    version: int
-
-
 class LegacyV2Build(TypedDict, total=False):
     image: Literal["stable", "latest", "testing"]
     apt_packages: list[str]
@@ -34,13 +30,14 @@ class PythonInstallPath(TypedDict):
     extra_requirements: list[str]
 
 
-class Python(TypedDict):
+class Python(TypedDict, total=False):
     version: str
     system_packages: bool
     install: list[PythonRequirements | PythonInstallPath]
 
 
-class RTDConfig(BaseRTDConfig, total=False):
+class RTDConfig(TypedDict, total=False):
+    version: int
     formats: list[Formats]
-    build: V2Build | LegacyV2Build
+    build: V2Build | LegacyV2Build  # FIXME: What about V1 build?
     python: Python
