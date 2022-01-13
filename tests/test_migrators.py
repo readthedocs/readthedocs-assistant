@@ -21,13 +21,13 @@ from readthedocs_assistant.migrators import use_build_tools
                 "version": 2,
                 "python": {
                     "version": "3.8",
-                    "install": {"requirements": "requirements.txt"},
+                    "install": [{"requirements": "requirements.txt"}],
                 },
             },
             {
                 "version": 2,
                 "build": {"os": "ubuntu-20.04", "tools": {"python": "3.8"}},
-                "python": {"install": {"requirements": "requirements.txt"}},
+                "python": {"install": [{"requirements": "requirements.txt"}]},
             },
         ],
     ],
