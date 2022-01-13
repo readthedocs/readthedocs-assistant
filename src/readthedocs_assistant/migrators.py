@@ -9,9 +9,7 @@ class MigrationError(RuntimeError):
     pass
 
 
-async def use_build_tools(
-    config: RTDConfig, *, default_python_version: str = "3.7"
-) -> RTDConfig:
+async def use_build_tools(config: RTDConfig) -> RTDConfig:
     """Migrate to build.tools configuration
 
     See https://docs.readthedocs.io/en/latest/config-file/v2.html#build.
@@ -25,11 +23,10 @@ async def use_build_tools(
         return config
 
     new_config = config.copy()
-    # FIXME: Python version depends on build.image
-    # For example:
-    # 2.0 -> 3.5
-    # 3.0... -> 3.7
-    python_version = config.get("python", {}).get("version", default_python_version)
+
+    # Very old docker images used Python 3.5, but they are not in use anymore
+    # From 4.0 onwards, the default Python version was 3.7
+    python_version = config.get("python", {}).get("version", "3.7")
 
     new_config["build"] = V2Build(
         {
