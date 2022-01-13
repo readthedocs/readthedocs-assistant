@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import logging
-from typing import Any, cast
+from typing import Any, Dict, cast
 
 import httpx
 from jsonschema import validate
@@ -14,14 +16,28 @@ SCHEMA_URL = (
     "master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json"
 )
 
+Schema = Dict[str, Any]
 
-async def validate_config(
-    config: Any, schema_url: str = SCHEMA_URL, *, client: httpx.AsyncClient
-) -> RTDConfig:
+
+async def _get_schema(
+    schema_url: str = SCHEMA_URL, client: httpx.AsyncClient | None = None
+) -> Schema:
+
+    if not client:
+        client = httpx.AsyncClient()
+
     resp_schema = await client.get(SCHEMA_URL)
     resp_schema.raise_for_status()
     schema = resp_schema.json()
-    logger.debug(schema)
+
+    return cast(Schema, schema)
+
+
+async def validate_config(config: Any, schema: Schema | None = None) -> RTDConfig:
+    # TODO: Cache schema
+    if not schema:
+        schema = await _get_schema()
+    logger.debug("Using schema: %s", schema)
 
     validate(instance=config, schema=schema)
 

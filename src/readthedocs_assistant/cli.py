@@ -82,7 +82,7 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         unvalidated_config = load(
             await load_contents(forked_repo, config_item["path"], gh=gh), Loader=Loader
         )
-        config = await validate_config(unvalidated_config, client=client)
+        config = await validate_config(unvalidated_config)
 
         # At this point, the repository is forked and the configuration is validated
         # and we can do whatever change we want to do
