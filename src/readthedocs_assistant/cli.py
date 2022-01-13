@@ -107,7 +107,7 @@ async def main(
         elif applied and new_config == config:
             # Useful if we want to "mark project as migrated" somehow
             logger.info(
-                "Migration was applied and configuration was changed, "
+                "Migration was applied with no changes in configuration, "
                 "nothing else to do"
             )
         else:
