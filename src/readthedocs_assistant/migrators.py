@@ -19,7 +19,7 @@ async def use_build_tools(config: RTDConfig) -> tuple[RTDConfig, bool]:
     if config.get("version", 1) < 2:
         raise MigrationError("Config uses V1, migrate to V2 first")
 
-    if config.get("build", {}).get("tools"):
+    if "tools" in config.get("build", {}):
         logger.info("Config already contains build.tools, nothing to do")
         return config, False
 
