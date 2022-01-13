@@ -10,7 +10,7 @@ class MigrationError(RuntimeError):
 
 
 async def use_build_tools(
-    config: RTDConfig, default_python_version: str = "3.7"
+    config: RTDConfig, *, default_python_version: str = "3.7"
 ) -> RTDConfig:
     """Migrate to build.tools configuration
 
