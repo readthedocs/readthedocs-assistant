@@ -20,10 +20,15 @@ async def use_build_tools(
         raise MigrationError("Config uses V1, migrate to V2 first")
 
     if config.get("build", {}).get("tools"):
+        # TODO: Signal that nothing was done to avoid further action!
         logger.info("Config already contains build.tools, nothing to do")
         return config
 
     new_config = config.copy()
+    # FIXME: Python version depends on build.image
+    # For example:
+    # 2.0 -> 3.5
+    # 3.0... -> 3.7
     python_version = config.get("python", {}).get("version", default_python_version)
 
     new_config["build"] = V2Build(

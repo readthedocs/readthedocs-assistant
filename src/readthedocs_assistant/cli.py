@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import logging
+import logging  # TODO: Migrate to structlog
 import os
 import re
 from typing import TYPE_CHECKING, Any, cast
@@ -113,16 +113,21 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
 
         logger.info("New config: %s", new_config)
 
+        # TODO: Create pull request with message
+        # TODO: Add interactive/dry run mode to manually compare changes
+        # before opening pull request
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    # For testing purposes
+    # TODO: Add cli parameter to pick migrator
+    # TODO: Detect migrations and write small report
     asyncio.run(
         main(
             os.environ["GH_USERNAME"],
             os.environ["GH_TOKEN"],
-            "jupyterlite",
+            "jupyterlite",  # TODO: Do not hardcode repositories
             "jupyterlite",
         )
     )
