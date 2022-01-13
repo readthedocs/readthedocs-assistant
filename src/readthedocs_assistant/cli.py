@@ -64,6 +64,26 @@ async def load_contents(
     return content
 
 
+async def update_contents(
+    repo: Any,
+    blob: Any,
+    new_contents: str,
+    branch_name: str,
+    encoding: str = "utf-8",
+    *,
+    gh: GitHubAPI,
+) -> None:
+    await gh.put(
+        f"/repos/{repo['full_name']}/contents/{blob['path']}",
+        data={
+            "message": "Update RTD configuration (automatic)",
+            "content": base64.b64encode(new_contents.encode(encoding)).decode("ascii"),
+            "sha": blob["sha"],
+            "branch": branch_name,
+        },
+    )
+
+
 def compare_strings(s1: str, s2: str) -> str:
     d = Differ()
     result = d.compare(s1.splitlines(keepends=True), s2.splitlines(keepends=True))
@@ -71,7 +91,12 @@ def compare_strings(s1: str, s2: str) -> str:
 
 
 async def main(
-    username: str, token: str, owner: str, repository_name: str, dry_run: bool = True
+    username: str,
+    token: str,
+    owner: str,
+    repository_name: str,
+    new_branch_name: str = "assistant-update-config",
+    dry_run: bool = True,
 ) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
@@ -124,7 +149,33 @@ async def main(
                 forked_repo = await fork_repo(target_repo, gh=gh)
                 logger.info("%s created", forked_repo["full_name"])
 
-                # TODO: Commit contents to separate branch and push
+                await gh.post(
+                    f"/repos/{forked_repo['full_name']}/git/refs",
+                    data={
+                        "ref": f"refs/heads/{new_branch_name}",
+                        "sha": default_branch["commit"]["sha"],
+                    },
+                )
+                logger.info("New branch created successfully")
+
+                await update_contents(
+                    forked_repo,
+                    config_item,
+                    yaml_new_config,
+                    branch_name=new_branch_name,
+                    gh=gh,
+                )
+                logger.info("Contents updated successfully")
+
+                compare_url = await gh.getitem(
+                    f"/repos/{forked_repo['full_name']}"
+                    f"/compare/{forked_repo['default_branch']}...{new_branch_name}"
+                )
+                logger.info(
+                    "Browse %s to see the changes",
+                    compare_url["html_url"],
+                )
+
                 # TODO: Create pull request with message
             else:
                 logger.info(
@@ -143,5 +194,6 @@ if __name__ == "__main__":
             os.environ["GH_TOKEN"],
             "jupyterlite",  # TODO: Do not hardcode repositories
             "jupyterlite",
+            dry_run=True,
         )
     )
