@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import logging
+import logging  # TODO: Migrate to structlog
 import os
 import re
 from typing import TYPE_CHECKING, Any
@@ -10,8 +10,10 @@ from typing import TYPE_CHECKING, Any
 import gidgethub
 import gidgethub.httpx
 import httpx
-from jsonschema import validate
 from yaml import Loader, load
+
+from .migrators import use_build_tools
+from .validation import validate_config
 
 if TYPE_CHECKING:
     from gidgethub.abc import GitHubAPI
@@ -19,28 +21,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
 
-# https://www.schemastore.org/json/
-SCHEMA_URL = (
-    "https://raw.githubusercontent.com/readthedocs/readthedocs.org/"
-    "master/readthedocs/rtd_tests/fixtures/spec/v2/schema.json"
-)
 
-
-async def fork_repo(owner: str, repository_name: str, *, gh: GitHubAPI) -> Any:
+async def fork_repo(repo: Any, *, gh: GitHubAPI) -> Any:
     # Create fork
     try:
-        await gh.post(f"/repos/{owner}/{repository_name}/forks", data={})
+        await gh.post(f"/repos/{repo['full_name']}/forks", data={})
     except gidgethub.HTTPException as exc:
         # 202 ACCEPTED raises an error,
         # see https://github.com/brettcannon/gidgethub/issues/171
         if exc.status_code != 202:
             raise
 
-    forked_repo = await gh.getitem(f"/repos/readthedocs-assistant/{repository_name}")
+    forked_repo = await gh.getitem(f"/repos/readthedocs-assistant/{repo['name']}")
     logger.debug(forked_repo)
     return forked_repo
 
@@ -70,17 +65,6 @@ async def load_contents(
     return content
 
 
-async def validate_config(
-    config: Any, schema_url: str = SCHEMA_URL, *, client: httpx.AsyncClient
-) -> None:
-    resp_schema = await client.get(SCHEMA_URL)
-    resp_schema.raise_for_status()
-    schema = resp_schema.json()
-    logger.debug(schema)
-
-    validate(instance=config, schema=schema)
-
-
 async def main(username: str, token: str, owner: str, repository_name: str) -> None:
     async with httpx.AsyncClient() as client:
         gh = gidgethub.httpx.GitHubAPI(client, username, oauth_token=token)
@@ -88,32 +72,66 @@ async def main(username: str, token: str, owner: str, repository_name: str) -> N
         all_repos = gh.getiter("/user/repos")
         logger.debug("%d repos found", len([r async for r in all_repos]))
 
-        forked_repo = await fork_repo(owner, repository_name, gh=gh)
-        logger.info("%s created", forked_repo["full_name"])
+        target_repo = await gh.getitem(f"/repos/{owner}/{repository_name}")
+        logger.debug("Analyzing repository %s", target_repo["full_name"])
 
-        config_item = await find_config(forked_repo, gh=gh)
+        config_item = await find_config(target_repo, gh=gh)
         assert config_item
 
-        config = load(
-            await load_contents(forked_repo, config_item["path"], gh=gh), Loader=Loader
+        unvalidated_config = load(
+            await load_contents(target_repo, config_item["path"], gh=gh), Loader=Loader
         )
-        logger.info(config)
-
-        await validate_config(config, client=client)
+        config = await validate_config(unvalidated_config)
 
         # At this point, the repository is forked and the configuration is validated
         # and we can do whatever change we want to do
+        logger.info("Current config: %s", config)
+
+        # For example, migrate to build.tools
+
+        # Possibilities:
+        # 1. applied = False, migration was not applied because it was not necessary
+        # 2. applied = True, new_config == config
+        #    migration was applied but config didn't change
+        # 3. applied = True, new_config != config,
+        #    migration was applied and pull request is needed
+        # 4. MigrationError, the migration could not be applied
+        new_config, applied = await use_build_tools(config)
+
+        logger.info("New config: %s", new_config)
+
+        if not applied:
+            logger.info("Migration was not applied, nothing else to do")
+        elif applied and new_config == config:
+            # Useful if we want to "mark project as migrated" somehow
+            logger.info(
+                "Migration was applied and configuration was changed, "
+                "nothing else to do"
+            )
+        else:
+            logger.info(
+                "Migration was applied and configuration was changed, "
+                "pull request is required"
+            )
+
+            forked_repo = await fork_repo(target_repo, gh=gh)
+            logger.info("%s created", forked_repo["full_name"])
+
+            # TODO: Create pull request with message
+            # TODO: Add interactive/dry run mode to manually compare changes
+            # before opening pull request
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
-    # For testing purposes
+    # TODO: Add cli parameter to pick migrator
+    # TODO: Detect migrations and write small report
     asyncio.run(
         main(
             os.environ["GH_USERNAME"],
             os.environ["GH_TOKEN"],
-            "jupyterlite",
+            "jupyterlite",  # TODO: Do not hardcode repositories
             "jupyterlite",
         )
     )
