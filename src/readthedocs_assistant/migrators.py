@@ -43,7 +43,11 @@ class UseBuildTools(Migrator):
 
         # Very old docker images used Python 3.5, but they are not in use anymore
         # From 4.0 onwards, the default Python version was 3.7
-        python_version = config.get("python", {}).get("version", "3.7")
+        if "conda" in new_config:
+            # https://github.com/readthedocs/readthedocs.org/issues/8595
+            python_version = "miniconda3-4.7"
+        else:
+            python_version = config.get("python", {}).get("version", "3.7")
 
         new_config["build"] = {
             "os": "ubuntu-20.04",
