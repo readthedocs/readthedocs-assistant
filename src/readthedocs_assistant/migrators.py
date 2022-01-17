@@ -84,3 +84,31 @@ class UseBuildTools(Migrator):
             new_config.pop("python")
 
         return new_config, True
+
+
+class UseMamba(Migrator):
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
+        """Migrate to Mamba as a drop-in replacement for Conda."""
+        if config.get("version", 1) < 2:
+            raise MigrationError("Config uses V1, migrate to V2 first")
+
+        if "conda" not in config:
+            raise MigrationError(
+                "Conda environment not specified, config does not use conda"
+            )
+
+        python_version = config.get("build", {}).get("tools", {}).get("python", "")
+        if "miniconda" not in python_version:
+            raise MigrationError(
+                f"Python version set to '{python_version}' instead of Miniconda, "
+                "run UseBuildTools migration first"
+            )
+
+        if "mamba" in python_version:
+            logger.info("Config already uses Mamba, nothing to do")
+            return config, False
+
+        new_config = config.copy()
+        new_config["build"]["tools"]["python"] = "mambaforge-4.10"
+
+        return new_config, True
