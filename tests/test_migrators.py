@@ -1,6 +1,6 @@
 import pytest
 
-from readthedocs_assistant.migrators import use_build_tools
+from readthedocs_assistant.migrators import UseBuildTools, UseMamba
 
 
 @pytest.mark.parametrize(
@@ -33,8 +33,81 @@ from readthedocs_assistant.migrators import use_build_tools
     ],
 )
 @pytest.mark.asyncio
-async def test_use_build_tools_returns_expected_config(config, expected_config):
-    new_config, applied = await use_build_tools(config)
+async def test_use_build_tools_returns_expected_config_simple(config, expected_config):
+    migrator = UseBuildTools()
+    new_config, applied = await migrator.migrate(config)
+
+    assert new_config == expected_config
+    assert applied
+
+
+@pytest.mark.parametrize(
+    "config, expected_config",
+    [
+        [
+            {"version": 2, "conda": {"environment": "environment.yml"}},
+            {
+                "version": 2,
+                "build": {
+                    "os": "ubuntu-20.04",
+                    "tools": {"python": "miniconda3-4.7"},
+                },
+                "conda": {"environment": "environment.yml"},
+            },
+        ],
+        [
+            {
+                "version": 2,
+                "conda": {"environment": "environment.yml"},
+                "python": {"version": "3.9"},
+            },
+            {
+                "version": 2,
+                "build": {
+                    "os": "ubuntu-20.04",
+                    "tools": {"python": "miniconda3-4.7"},
+                },
+                "conda": {"environment": "environment.yml"},
+            },
+        ],
+    ],
+)
+@pytest.mark.asyncio
+async def test_use_build_tools_returns_expected_config_conda(config, expected_config):
+    migrator = UseBuildTools()
+    new_config, applied = await migrator.migrate(config)
+
+    assert new_config == expected_config
+    assert applied
+
+
+@pytest.mark.parametrize(
+    "config, expected_config",
+    [
+        [
+            {
+                "version": 2,
+                "build": {
+                    "os": "ubuntu-20.04",
+                    "tools": {"python": "miniconda3-4.7"},
+                },
+                "conda": {"environment": "environment.yml"},
+            },
+            {
+                "version": 2,
+                "build": {
+                    "os": "ubuntu-20.04",
+                    "tools": {"python": "mambaforge-4.10"},
+                },
+                "conda": {"environment": "environment.yml"},
+            },
+        ],
+    ],
+)
+@pytest.mark.asyncio
+async def test_use_mamba_returns_expected_config(config, expected_config):
+    migrator = UseMamba()
+    new_config, applied = await migrator.migrate(config)
 
     assert new_config == expected_config
     assert applied

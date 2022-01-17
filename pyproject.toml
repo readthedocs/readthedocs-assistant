@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
+    "click",
     "gidgethub",
     "jsonschema",
     "httpx",
