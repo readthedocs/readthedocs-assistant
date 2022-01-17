@@ -5,8 +5,8 @@ from typing import Any, Type
 
 import jsonschema
 
+from .config import validate_config
 from .types import RTDConfig
-from .validation import validate_config
 
 logger = logging.getLogger(__name__)
 
