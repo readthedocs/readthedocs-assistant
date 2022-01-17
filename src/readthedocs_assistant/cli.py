@@ -139,6 +139,7 @@ async def migrate_config(
             logger.info("No migration was applied, nothing else to do")
         elif any(applied) and new_config == config:
             # Useful if we want to "mark project as migrated" somehow
+            # TODO: Remove because YAGNI?
             logger.info(
                 "At least one migration was applied but configuration did not change, "
                 "nothing else to do"
