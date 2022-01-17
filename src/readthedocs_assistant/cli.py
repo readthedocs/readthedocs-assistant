@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging  # TODO: Migrate to structlog
-import os
 import re
 from difflib import Differ
 from typing import TYPE_CHECKING, Any
 
+import click
 import gidgethub
 import gidgethub.httpx
 import httpx
@@ -90,7 +90,7 @@ def compare_strings(s1: str, s2: str) -> str:
     return "".join(result)
 
 
-async def main(
+async def migrate_config(
     username: str,
     token: str,
     owner: str,
@@ -183,17 +183,34 @@ async def main(
                 )
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+@click.command()
+@click.option("--username", required=True)
+@click.option("--password-or-token", required=True)
+@click.option("--repository-owner", required=True)
+@click.option("--repository-name", required=True)
+@click.option("--run-migration", default=False)
+@click.option("-v", "--verbose", default=False)
+def main(
+    username: str,
+    password_or_token: str,
+    repository_owner: str,
+    repository_name: str,
+    run_migration: bool,
+    verbose: bool,
+) -> None:
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
 
-    # TODO: Add cli parameter to pick migrator
-    # TODO: Detect migrations and write small report
     asyncio.run(
-        main(
-            os.environ["GH_USERNAME"],
-            os.environ["GH_TOKEN"],
-            "jupyterlite",  # TODO: Do not hardcode repositories
-            "jupyterlite",
-            dry_run=True,
+        migrate_config(
+            username,
+            password_or_token,
+            repository_owner,
+            repository_name,
+            dry_run=not run_migration,
         )
     )
+
+
+if __name__ == "__main__":
+    # TODO: Detect migrations and write small report
+    main()
