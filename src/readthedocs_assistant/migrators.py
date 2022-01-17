@@ -18,16 +18,36 @@ class MigrationError(RuntimeError):
 class Migrator:
     registry = {}  # type: dict[str, Type[Migrator]]
 
+    # This magic method registers the subclass when it's created
+    # see PEP 487
     def __init_subclass__(cls: Type[Migrator], **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         cls.registry[cls.__name__] = cls
 
+    # This does do_migrate + new config validation
+    # So that subclasses only need to implement do_migrate
     async def migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
+        new_config, migration_applied = await self.do_migrate(config)
+        await self.__validate(new_config)
+
+        return new_config, migration_applied
+
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
         raise NotImplementedError
+
+    # Validates that the new configuration is valid
+    # Mangled so it's not easily overridden by subclasses
+    async def __validate(self, new_config: RTDConfig) -> None:
+        try:
+            await validate_config(new_config)
+        except jsonschema.exceptions.ValidationError:
+            raise MigrationError(
+                "Produced configuration is invalid, this is an internal problem"
+            )
 
 
 class UseBuildTools(Migrator):
-    async def migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
         """Migrate to build.tools configuration
 
         See https://docs.readthedocs.io/en/latest/config-file/v2.html#build.
@@ -62,13 +82,5 @@ class UseBuildTools(Migrator):
         # If python has no keys left, drop it altogether
         if "python" in new_config and not new_config["python"]:
             new_config.pop("python")
-
-        # Validate configuration before returning
-        try:
-            await validate_config(new_config)
-        except jsonschema.exceptions.ValidationError:
-            raise MigrationError(
-                "Produced configuration is invalid, this is an internal problem"
-            )
 
         return new_config, True
