@@ -14,7 +14,7 @@ import httpx
 from yaml import Loader, dump, load
 
 from .io import RTDDumper
-from .migrators import use_build_tools
+from .migrators import Migrator
 from .validation import validate_config
 
 if TYPE_CHECKING:
@@ -95,6 +95,7 @@ async def migrate_config(
     token: str,
     owner: str,
     repository_name: str,
+    migrator: Migrator,
     new_branch_name: str = "assistant-update-config",
     dry_run: bool = True,
 ) -> None:
@@ -124,8 +125,7 @@ async def migrate_config(
         # and we can do whatever change we want to do
         logger.info("Current config: %s", config)
 
-        # For example, migrate to build.tools
-        new_config, applied = await use_build_tools(config)
+        new_config, applied = await migrator.migrate(config)
 
         logger.info("New config: %s", new_config)
 
@@ -188,6 +188,7 @@ async def migrate_config(
 @click.option("--password-or-token", required=True)
 @click.option("--repository-owner", required=True)
 @click.option("--repository-name", required=True)
+@click.option("--migrator-name", required=True)
 @click.option("--run-migration", default=False)
 @click.option("-v", "--verbose", default=False)
 def main(
@@ -195,6 +196,7 @@ def main(
     password_or_token: str,
     repository_owner: str,
     repository_name: str,
+    migrator_name: str,
     run_migration: bool,
     verbose: bool,
 ) -> None:
@@ -206,6 +208,7 @@ def main(
             password_or_token,
             repository_owner,
             repository_name,
+            migrator=Migrator.registry[migrator_name](),
             dry_run=not run_migration,
         )
     )

@@ -1,6 +1,6 @@
 import pytest
 
-from readthedocs_assistant.migrators import use_build_tools
+from readthedocs_assistant.migrators import UseBuildTools
 
 
 @pytest.mark.parametrize(
@@ -33,8 +33,9 @@ from readthedocs_assistant.migrators import use_build_tools
     ],
 )
 @pytest.mark.asyncio
-async def test_use_build_tools_returns_expected_config(config, expected_config):
-    new_config, applied = await use_build_tools(config)
+async def test_use_build_tools_returns_expected_config_simple(config, expected_config):
+    migrator = UseBuildTools()
+    new_config, applied = await migrator.migrate(config)
 
     assert new_config == expected_config
     assert applied
