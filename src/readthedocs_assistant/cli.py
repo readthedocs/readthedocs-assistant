@@ -95,7 +95,7 @@ async def migrate_config(
     token: str,
     owner: str,
     repository_name: str,
-    migrator: Migrator,
+    migrators: list[Migrator],
     new_branch_name: str = "assistant-update-config",
     dry_run: bool = True,
 ) -> None:
@@ -125,22 +125,28 @@ async def migrate_config(
         # and we can do whatever change we want to do
         logger.info("Current config: %s", config)
 
-        new_config, applied = await migrator.migrate(config)
+        new_config = config  # Initialize before iteration
+        applied = []
+        for migrator in migrators:
+            logger.debug("Applying %s...", migrator.__class__.__name__)
+            new_config, this_applied = await migrator.migrate(new_config)
+            logger.debug("New config after step: %s", new_config)
+            applied.append(this_applied)
 
         logger.info("New config: %s", new_config)
 
-        if not applied:
-            logger.info("Migration was not applied, nothing else to do")
-        elif applied and new_config == config:
+        if not any(applied):
+            logger.info("No migration was applied, nothing else to do")
+        elif any(applied) and new_config == config:
             # Useful if we want to "mark project as migrated" somehow
             logger.info(
-                "Migration was applied with no changes in configuration, "
+                "At least one migration was applied but configuration did not change, "
                 "nothing else to do"
             )
         else:
             logger.info(
-                "Migration was applied and configuration was changed, "
-                "pull request is required"
+                "At least one migration was applied and configuration changed, "
+                "pull request is required!"
             )
 
             yaml_new_config = dump(new_config, Dumper=RTDDumper)
@@ -183,24 +189,34 @@ async def migrate_config(
                 )
 
 
+def parse_migrators(migrator_names_str: str) -> list[Migrator]:
+    migrators = []
+    for migrator_name in migrator_names_str.split(","):
+        MigratorClass = Migrator.registry[migrator_name]
+        migrators.append(MigratorClass())
+    return migrators
+
+
 @click.command()
 @click.option("--username", required=True)
 @click.option("--password-or-token", required=True)
 @click.option("--repository-owner", required=True)
 @click.option("--repository-name", required=True)
-@click.option("--migrator-name", required=True)
+@click.option(
+    "--migrator-names", required=True, help="Comma-separated list of migrators"
+)
 @click.option("--run-migration", default=False)
-@click.option("-v", "--verbose", default=False)
+@click.option("-d", "--debug", is_flag=True, default=False)
 def main(
     username: str,
     password_or_token: str,
     repository_owner: str,
     repository_name: str,
-    migrator_name: str,
+    migrator_names: str,
     run_migration: bool,
-    verbose: bool,
+    debug: bool,
 ) -> None:
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
     asyncio.run(
         migrate_config(
@@ -208,7 +224,7 @@ def main(
             password_or_token,
             repository_owner,
             repository_name,
-            migrator=Migrator.registry[migrator_name](),
+            migrators=parse_migrators(migrator_names),
             dry_run=not run_migration,
         )
     )
