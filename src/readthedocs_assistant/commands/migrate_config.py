@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
 
-MESSAGE_TPL = """Howdy! :wave:
+PULL_REQUEST_BODY_TPL = """Howdy! :wave:
 
 I am @readthedocs-assistant and I am sending you this pull request to
 upgrade the configuration of your Read the Docs project.
@@ -34,18 +34,24 @@ but I recommended you to take it into consideration.
 _*Note*: This tool is in beta phase. Don't hesitate to ping
 @astrojuanlu and/or @humitos if you spot any problems._
 
-The following migrators were applied:
-
-{migrators_fragment}
+{migrator_summary}
 ---
 
 Happy documenting! :sparkles:
 """
 
+COMMIT_TPL = """Update Read the Docs configuration (automatic)
+
+{migrators_summary}
+"""
+
+MIGRATOR_SUMMARY_TPL = """The following migrators were applied:
+
+{migrators_fragments}"""
+
 MIGRATOR_FRAGMENT_TPL = """- {migrator_one_liner}
 
-{migrator_description}
-"""
+{migrator_description}"""
 
 
 def unwrap_text(text: str) -> str:
@@ -53,8 +59,8 @@ def unwrap_text(text: str) -> str:
     return "".join(line.strip() + " " if line else "\n\n" for line in lines)
 
 
-def build_pull_request_body(migrators: list[Migrator]) -> str:
-    migrators_fragment = "\n".join(
+def build_migrators_summary(migrators: list[Migrator]) -> str:
+    migrators_fragments = "\n".join(
         MIGRATOR_FRAGMENT_TPL.format(
             migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
             migrator_description=(
@@ -65,8 +71,7 @@ def build_pull_request_body(migrators: list[Migrator]) -> str:
         else f"- `{migrator.__class__.__name__}`"
         for migrator in migrators
     )
-    message = MESSAGE_TPL.format(migrators_fragment=migrators_fragment)
-    return message
+    return MIGRATOR_SUMMARY_TPL.format(migrators_fragments=migrators_fragments)
 
 
 async def find_config(repo: Any, tip_sha: str, *, gh: GitHubAPI) -> Any:
@@ -105,7 +110,7 @@ async def fork_and_update(
     yaml_new_config: str,
     tip_sha: str,
     new_branch_name: str,
-    pull_request_body: str,
+    migrators_summary: str,
     interactive: bool = True,
     *,
     gh: GitHubAPI,
@@ -129,6 +134,7 @@ async def fork_and_update(
         config_item,
         yaml_new_config,
         branch_name=new_branch_name,
+        message=COMMIT_TPL.format(migrators_summary=migrators_summary),
         gh=gh,
     )
     logger.info("Contents updated successfully")
@@ -148,7 +154,9 @@ async def fork_and_update(
             f"/repos/{forked_repo['full_name']}/pulls",
             data={
                 "title": "Update Read the Docs configuration",
-                "body": pull_request_body,
+                "body": PULL_REQUEST_BODY_TPL.format(
+                    migrators_summary=migrators_summary
+                ),
                 "head": f"{forked_repo['owner']['login']}:{new_branch_name}",
                 "base": forked_repo["default_branch"],
             },
@@ -208,6 +216,7 @@ async def migrate_config(
             )
 
             yaml_new_config = dump(new_config, Dumper=RTDDumper)
+            migrators_summary = build_migrators_summary(migrators)
 
             if not dry_run:
                 await fork_and_update(
@@ -216,10 +225,11 @@ async def migrate_config(
                     yaml_new_config=yaml_new_config,
                     tip_sha=tip_sha,
                     new_branch_name=new_branch_name,
-                    pull_request_body=build_pull_request_body(migrators),
+                    migrators_summary=migrators_summary,
                     gh=gh,
                 )
             else:
                 logger.info(
                     "Difference: \n%s", compare_strings(yaml_config, yaml_new_config)
                 )
+                logger.info(migrators_summary)
