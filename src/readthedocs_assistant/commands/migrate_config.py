@@ -141,8 +141,9 @@ async def fork_and_update(
     logger.info("Contents updated successfully")
 
     compare_url = await gh.getitem(
-        f"/repos/{forked_repo['full_name']}"
-        f"/compare/{forked_repo['default_branch']}...{new_branch_name}"
+        f"/repos/{target_repo['full_name']}"
+        f"/compare/{target_repo['default_branch']}..."
+        f"{forked_repo['owner']['login']}:{new_branch_name}"
     )
     logger.info(
         "Browse %s to see the changes",
