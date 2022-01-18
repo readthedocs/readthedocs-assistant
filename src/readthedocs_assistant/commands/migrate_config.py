@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging  # TODO: Migrate to structlog
 import re
+import textwrap
+import webbrowser
 from difflib import Differ
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +24,56 @@ logger = logging.getLogger(__name__)
 
 # https://github.com/readthedocs/readthedocs.org/blob/2e1b121d/readthedocs/config/config.py#L59
 CONFIG_FILENAME_REGEX = r"^\.?readthedocs.ya?ml$"
+
+PULL_REQUEST_BODY_TPL = """Howdy! :wave:
+
+I am @readthedocs-assistant and I am sending you this pull request to
+upgrade the configuration of your Read the Docs project.
+Your project will continue working whether or not you merge it,
+but I recommended you to take it into consideration.
+
+_*Note*: This tool is in beta phase. Don't hesitate to ping
+@astrojuanlu and/or @humitos if you spot any problems._
+
+{migrator_summary}
+---
+
+Happy documenting! :sparkles:
+"""
+
+COMMIT_TPL = """Update Read the Docs configuration (automatic)
+
+{migrators_summary}
+"""
+
+MIGRATOR_SUMMARY_TPL = """The following migrators were applied:
+
+{migrators_fragments}"""
+
+MIGRATOR_FRAGMENT_TPL = """- {migrator_one_liner}
+
+{migrator_description}
+"""
+
+
+def unwrap_text(text: str) -> str:
+    lines = text.splitlines()
+    return "".join(line.strip() + " " if line else "\n\n" for line in lines)
+
+
+def build_migrators_summary(migrators: list[Migrator]) -> str:
+    migrators_fragments = "\n".join(
+        MIGRATOR_FRAGMENT_TPL.format(
+            migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
+            migrator_description=(
+                textwrap.dedent(migrator.__doc__.split("\n\n", maxsplit=1)[1]).strip()
+            ),
+        )
+        if migrator.__doc__
+        else f"- `{migrator.__class__.__name__}`"
+        for migrator in migrators
+    )
+    return MIGRATOR_SUMMARY_TPL.format(migrators_fragments=migrators_fragments)
 
 
 async def find_config(repo: Any, tip_sha: str, *, gh: GitHubAPI) -> Any:
@@ -60,12 +112,16 @@ async def fork_and_update(
     yaml_new_config: str,
     tip_sha: str,
     new_branch_name: str,
+    migrators_summary: str,
+    interactive: bool = True,
     *,
     gh: GitHubAPI,
 ) -> None:
     forked_repo = await fork_repo(target_repo, gh=gh)
     logger.info("%s created", forked_repo["full_name"])
 
+    # TODO: Decide what to do if the branch already exists
+    # At the moment it fails with an error "Reference already exists"
     await gh.post(
         f"/repos/{forked_repo['full_name']}/git/refs",
         data={
@@ -80,20 +136,42 @@ async def fork_and_update(
         config_item,
         yaml_new_config,
         branch_name=new_branch_name,
+        message=COMMIT_TPL.format(migrators_summary=migrators_summary),
         gh=gh,
     )
     logger.info("Contents updated successfully")
 
     compare_url = await gh.getitem(
-        f"/repos/{forked_repo['full_name']}"
-        f"/compare/{forked_repo['default_branch']}...{new_branch_name}"
+        f"/repos/{target_repo['full_name']}"
+        f"/compare/{target_repo['default_branch']}..."
+        f"{forked_repo['owner']['login']}:{new_branch_name}"
     )
-    logger.info(
-        "Browse %s to see the changes",
-        compare_url["html_url"],
-    )
+    if interactive:
+        logger.info(
+            "Opening %s to see the changes",
+            compare_url["html_url"],
+        )
+        webbrowser.open(compare_url["html_url"])
+    else:
+        logger.info("Browse %s to see the changes", compare_url["html_url"])
 
-    # TODO: Create pull request with message
+    accept = input("Open pull request? (yes/[no]) ") if interactive else "yes"
+    if accept == "yes":
+        pull_request = await gh.post(
+            f"/repos/{forked_repo['full_name']}/pulls",
+            data={
+                "title": "Update Read the Docs configuration",
+                "body": PULL_REQUEST_BODY_TPL.format(
+                    migrators_summary=migrators_summary
+                ),
+                "head": f"{forked_repo['owner']['login']}:{new_branch_name}",
+                "base": forked_repo["default_branch"],
+            },
+        )
+        logger.info("Pull request created: %s", pull_request["html_url"])
+
+    else:
+        logger.warning("Pull request not created")
 
 
 async def migrate_config(
@@ -102,7 +180,7 @@ async def migrate_config(
     owner: str,
     repository_name: str,
     migrators: list[Migrator],
-    new_branch_name: str = "assistant-update-config",
+    new_branch_name: str = "update-rtd-config-assistant",
     dry_run: bool = True,
 ) -> None:
     async with httpx.AsyncClient() as client:
@@ -145,6 +223,7 @@ async def migrate_config(
             )
 
             yaml_new_config = dump(new_config, Dumper=RTDDumper)
+            migrators_summary = build_migrators_summary(migrators)
 
             if not dry_run:
                 await fork_and_update(
@@ -153,9 +232,11 @@ async def migrate_config(
                     yaml_new_config=yaml_new_config,
                     tip_sha=tip_sha,
                     new_branch_name=new_branch_name,
+                    migrators_summary=migrators_summary,
                     gh=gh,
                 )
             else:
                 logger.info(
                     "Difference: \n%s", compare_strings(yaml_config, yaml_new_config)
                 )
+                logger.info(migrators_summary)

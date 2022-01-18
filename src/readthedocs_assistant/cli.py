@@ -27,7 +27,7 @@ def parse_migrators(migrator_names_str: str) -> list[Migrator]:
 @click.option(
     "--migrator-names", required=True, help="Comma-separated list of migrators"
 )
-@click.option("--run-migration", default=False)
+@click.option("--run-migration", is_flag=True, default=False)
 @click.option("-d", "--debug", is_flag=True, default=False)
 def main(
     username: str,

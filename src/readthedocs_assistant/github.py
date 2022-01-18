@@ -44,6 +44,7 @@ async def update_contents(
     blob: Any,
     new_contents: str,
     branch_name: str,
+    message: str,
     encoding: str = "utf-8",
     *,
     gh: GitHubAPI,
@@ -51,7 +52,7 @@ async def update_contents(
     await gh.put(
         f"/repos/{repo['full_name']}/contents/{blob['path']}",
         data={
-            "message": "Update RTD configuration (automatic)",
+            "message": message,
             "content": base64.b64encode(new_contents.encode(encoding)).decode("ascii"),
             "sha": blob["sha"],
             "branch": branch_name,
