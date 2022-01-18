@@ -147,7 +147,7 @@ async def fork_and_update(
         pull_request = await gh.post(
             f"/repos/{forked_repo['full_name']}/pulls",
             data={
-                "title": "Migrate RTD conf",
+                "title": "Update Read the Docs configuration",
                 "body": pull_request_body,
                 "head": f"{forked_repo['owner']['login']}:{new_branch_name}",
                 "base": forked_repo["default_branch"],
