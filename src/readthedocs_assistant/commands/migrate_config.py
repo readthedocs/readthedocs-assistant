@@ -51,7 +51,8 @@ MIGRATOR_SUMMARY_TPL = """The following migrators were applied:
 
 MIGRATOR_FRAGMENT_TPL = """- {migrator_one_liner}
 
-{migrator_description}"""
+{migrator_description}
+"""
 
 
 def unwrap_text(text: str) -> str:
