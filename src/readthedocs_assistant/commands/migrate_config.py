@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging  # TODO: Migrate to structlog
 import re
 import textwrap
+import webbrowser
 from difflib import Differ
 from typing import TYPE_CHECKING, Any
 
@@ -145,10 +146,14 @@ async def fork_and_update(
         f"/compare/{target_repo['default_branch']}..."
         f"{forked_repo['owner']['login']}:{new_branch_name}"
     )
-    logger.info(
-        "Browse %s to see the changes",
-        compare_url["html_url"],
-    )
+    if interactive:
+        logger.info(
+            "Opening %s to see the changes",
+            compare_url["html_url"],
+        )
+        webbrowser.open(compare_url["html_url"])
+    else:
+        logger.info("Browse %s to see the changes", compare_url["html_url"])
 
     accept = input("Open pull request? (yes/[no]) ") if interactive else "yes"
     if accept == "yes":
