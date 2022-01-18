@@ -173,7 +173,7 @@ async def migrate_config(
     owner: str,
     repository_name: str,
     migrators: list[Migrator],
-    new_branch_name: str = "assistant-update-config",
+    new_branch_name: str = "update-rtd-config-assistant",
     dry_run: bool = True,
 ) -> None:
     async with httpx.AsyncClient() as client:
