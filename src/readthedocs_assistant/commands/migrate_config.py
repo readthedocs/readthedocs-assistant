@@ -57,7 +57,7 @@ def build_pull_request_body(migrators: list[Migrator]) -> str:
     migrators_fragment = "\n".join(
         MIGRATOR_FRAGMENT_TPL.format(
             migrator_name=migrator.__class__.__name__,
-            migrator_one_liner=migrator.__doc__.splitlines()[0].strip(),
+            migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
             migrator_description=(
                 textwrap.dedent(migrator.__doc__.split("\n\n", maxsplit=1)[1]).strip()
             ),
