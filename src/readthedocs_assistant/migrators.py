@@ -47,11 +47,22 @@ class Migrator:
 
 
 class UseBuildTools(Migrator):
-    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
-        """Migrate to build.tools configuration
+    """Migrate to `build.tools` configuration.
 
-        See https://docs.readthedocs.io/en/latest/config-file/v2.html#build.
-        """
+    This uses the new base Docker image based on Ubuntu 20.04 introduced in October 2021
+    and picks an appropriate Python version for your project
+    (read [our blog post](https://blog.readthedocs.com/new-build-specification/)
+    for details).
+    Notice that now you can specify the Node.js, Rust, and Go versions as well.
+
+    *Note:* Some system dependencies are not preinstalled anymore,
+    so this might require manually adding them to `build.apt_packages`
+    (see [our
+    documentation](https://docs.readthedocs.io/en/stable/config-file/v2.html#build-apt-packages>)).
+
+    """
+
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
         if config.get("version", 1) < 2:
             raise MigrationError("Config uses V1, migrate to V2 first")
 
@@ -87,8 +98,15 @@ class UseBuildTools(Migrator):
 
 
 class UseMamba(Migrator):
+    """Migrate to Mamba as a drop-in replacement for Conda.
+
+    Your project requested using Mamba instead of Conda for performance reasons.
+    Now this is included in your configuration
+    and you can change it without our intervention.
+
+    """
+
     async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
-        """Migrate to Mamba as a drop-in replacement for Conda."""
         if config.get("version", 1) < 2:
             raise MigrationError("Config uses V1, migrate to V2 first")
 
