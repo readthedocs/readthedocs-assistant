@@ -148,7 +148,7 @@ async def fork_and_update(
         compare_url["html_url"],
     )
 
-    accept = input("Continue? (yes/[no]) ") if interactive else "yes"
+    accept = input("Open pull request? (yes/[no]) ") if interactive else "yes"
     if accept == "yes":
         pull_request = await gh.post(
             f"/repos/{forked_repo['full_name']}/pulls",
