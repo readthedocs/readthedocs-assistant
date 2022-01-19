@@ -33,6 +33,13 @@ upgrade the configuration of your Read the Docs project.
 Your project will continue working whether or not you merge it,
 but I recommended you to take it into consideration.
 
+Also, in case you haven't done it already, remember that you can
+enable the pull request builds for your project
+to see the effect of these changes.
+To do it, [follow the
+instructions](https://docs.readthedocs.io/en/stable/pull-requests.html),
+close this pull request, and open it again.
+
 _*Note*: This tool is in beta phase. Don't hesitate to ping
 @astrojuanlu and/or @humitos if you spot any problems._
 
