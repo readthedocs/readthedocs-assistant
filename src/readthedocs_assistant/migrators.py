@@ -69,6 +69,9 @@ class FixPythonVersion(Migrator):
 
         new_config["python"]["version"] = str(new_config["python"]["version"])
 
+        # HACK: Force valid=False if the project has `conda`
+        # because the fixed version number will not be seen in the final config
+        # return new_config, False
         return new_config, True
 
 
