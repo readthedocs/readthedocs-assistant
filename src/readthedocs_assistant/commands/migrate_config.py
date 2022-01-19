@@ -198,7 +198,9 @@ async def migrate_config(
         assert config_item
 
         yaml_config = await load_contents(target_repo, config_item["path"], gh=gh)
-        config = await load_and_validate_config(yaml_config)
+        config, valid = await load_and_validate_config(yaml_config, raise_error=False)
+        if not valid:
+            logger.warning("Original config is invalid, proceeding anyway")
 
         # At this point, the repository is forked and the configuration is validated
         # and we can do whatever change we want to do
