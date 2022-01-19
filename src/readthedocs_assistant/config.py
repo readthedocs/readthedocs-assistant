@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, cast
 
 import httpx
-from jsonschema import validate
+from jsonschema import ValidationError, validate
 from yaml import Dumper, Loader, load
 
 from .types import RTDConfig
@@ -21,7 +21,18 @@ SCHEMA_URL = (
 # We only care about primary ones, the inner ones will be sorted alphabetically
 # TODO: Make indentation configurable
 # TODO: Add one empty line after each config block?
-SORTED_KEYS = ["version", "build", "python", "conda", "sphinx", "formats"]
+# TODO: Retain comments?
+SORTED_KEYS = [
+    "version",
+    "build",
+    "sphinx",
+    "python",
+    "method",
+    "path",
+    "extra_requirements",
+    "conda",
+    "formats",
+]
 
 Schema = Dict[str, Any]
 
@@ -64,8 +75,17 @@ class RTDDumper(Dumper):
 RTDDumper.add_representer(dict, RTDDumper.represent_dict_custom_order)
 
 
-async def load_and_validate_config(yaml_config: str) -> RTDConfig:
+async def load_and_validate_config(
+    yaml_config: str, raise_error: bool
+) -> tuple[RTDConfig | Any, bool]:
     unvalidated_config = load(yaml_config, Loader=Loader)
-    config = await validate_config(unvalidated_config)
-
-    return config
+    try:
+        config = await validate_config(unvalidated_config)
+    except ValidationError as exc:
+        if raise_error:
+            raise exc
+        else:
+            logger.error("Config is invalid: %s", exc)
+            return unvalidated_config, False
+    else:
+        return config, True

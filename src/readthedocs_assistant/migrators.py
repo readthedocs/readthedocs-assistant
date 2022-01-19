@@ -46,6 +46,35 @@ class Migrator:
             )
 
 
+class FixPythonVersion(Migrator):
+    """Convert the Python version to a string.
+
+    This makes the configuration valid according to the schema
+    and protects you from
+    ["the Python 3.1 problem"](https://dev.to/hugovk/the-python-3-1-problem-85g).
+
+    """
+
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
+        if "version" not in config.get("python", {}):
+            logger.info("No python version is set, nothing to do")
+            return config, False
+
+        python_version = config["python"]["version"]
+        if isinstance(python_version, str):
+            logger.info("Python version already set to string, nothing to do")
+            return config, False
+
+        new_config = config.copy()
+
+        new_config["python"]["version"] = str(new_config["python"]["version"])
+
+        # HACK: Force valid=False if the project has `conda`
+        # because the fixed version number will not be seen in the final config
+        # return new_config, False
+        return new_config, True
+
+
 class UseBuildTools(Migrator):
     """Migrate to `build.tools` configuration.
 
@@ -106,6 +135,8 @@ class UseMamba(Migrator):
 
     """
 
+    mamba_python_version = "mambaforge-4.10"
+
     async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
         if config.get("version", 1) < 2:
             raise MigrationError("Config uses V1, migrate to V2 first")
@@ -116,7 +147,11 @@ class UseMamba(Migrator):
             )
 
         python_version = config.get("build", {}).get("tools", {}).get("python", "")
-        if "miniconda" not in python_version:
+        if python_version == self.mamba_python_version:
+            logger.info("Config already uses Mamba, nothing to do")
+            return config, False
+
+        elif "miniconda" not in python_version:
             raise MigrationError(
                 f"Python version set to '{python_version}' instead of Miniconda, "
                 "run UseBuildTools migration first"
@@ -127,6 +162,6 @@ class UseMamba(Migrator):
             return config, False
 
         new_config = config.copy()
-        new_config["build"]["tools"]["python"] = "mambaforge-4.10"
+        new_config["build"]["tools"]["python"] = self.mamba_python_version
 
         return new_config, True

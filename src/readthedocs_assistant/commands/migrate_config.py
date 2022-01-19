@@ -5,6 +5,7 @@ import re
 import textwrap
 import webbrowser
 from difflib import Differ
+from itertools import zip_longest
 from typing import TYPE_CHECKING, Any
 
 import gidgethub
@@ -31,6 +32,13 @@ I am @readthedocs-assistant and I am sending you this pull request to
 upgrade the configuration of your Read the Docs project.
 Your project will continue working whether or not you merge it,
 but I recommended you to take it into consideration.
+
+Also, in case you haven't done it already, remember that you can
+enable the pull request builds for your project
+to see the effect of these changes.
+To do it, [follow the
+instructions](https://docs.readthedocs.io/en/stable/pull-requests.html),
+close this pull request, and open it again.
 
 _*Note*: This tool is in beta phase. Don't hesitate to ping
 @astrojuanlu and/or @humitos if you spot any problems._
@@ -61,19 +69,26 @@ def unwrap_text(text: str) -> str:
     return "".join(line.strip() + " " if line else "\n\n" for line in lines)
 
 
-def build_migrators_summary(migrators: list[Migrator]) -> str:
-    migrators_fragments = "\n".join(
-        MIGRATOR_FRAGMENT_TPL.format(
-            migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
-            migrator_description=(
-                textwrap.dedent(migrator.__doc__.split("\n\n", maxsplit=1)[1]).strip()
-            ),
-        )
-        if migrator.__doc__
-        else f"- `{migrator.__class__.__name__}`"
-        for migrator in migrators
+def build_migrators_summary(migrators: list[Migrator], applied: list[bool]) -> str:
+    migrators_fragments = []
+    for migrator, applied in zip_longest(migrators, applied, fillvalue=False):
+        if applied:
+            migrators_fragments.append(
+                MIGRATOR_FRAGMENT_TPL.format(
+                    migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
+                    migrator_description=(
+                        textwrap.dedent(
+                            migrator.__doc__.split("\n\n", maxsplit=1)[1]
+                        ).strip()
+                    ),
+                )
+                if migrator.__doc__
+                else f"- `{migrator.__class__.__name__}`"
+            )
+
+    return MIGRATOR_SUMMARY_TPL.format(
+        migrators_fragments="\n".join(migrators_fragments)
     )
-    return MIGRATOR_SUMMARY_TPL.format(migrators_fragments=migrators_fragments)
 
 
 async def find_config(repo: Any, tip_sha: str, *, gh: GitHubAPI) -> Any:
@@ -155,23 +170,8 @@ async def fork_and_update(
     else:
         logger.info("Browse %s to see the changes", compare_url["html_url"])
 
-    accept = input("Open pull request? (yes/[no]) ") if interactive else "yes"
-    if accept == "yes":
-        pull_request = await gh.post(
-            f"/repos/{forked_repo['full_name']}/pulls",
-            data={
-                "title": "Update Read the Docs configuration",
-                "body": PULL_REQUEST_BODY_TPL.format(
-                    migrators_summary=migrators_summary
-                ),
-                "head": f"{forked_repo['owner']['login']}:{new_branch_name}",
-                "base": forked_repo["default_branch"],
-            },
-        )
-        logger.info("Pull request created: %s", pull_request["html_url"])
-
-    else:
-        logger.warning("Pull request not created")
+    # TODO: Create pull request if permission to write upstream
+    # See https://github.com/readthedocs/readthedocs-assistant/issues/8
 
 
 async def migrate_config(
@@ -181,6 +181,7 @@ async def migrate_config(
     repository_name: str,
     migrators: list[Migrator],
     new_branch_name: str = "update-rtd-config-assistant",
+    interactive: bool = True,
     dry_run: bool = True,
 ) -> None:
     async with httpx.AsyncClient() as client:
@@ -198,7 +199,9 @@ async def migrate_config(
         assert config_item
 
         yaml_config = await load_contents(target_repo, config_item["path"], gh=gh)
-        config = await load_and_validate_config(yaml_config)
+        config, valid = await load_and_validate_config(yaml_config, raise_error=False)
+        if not valid:
+            logger.warning("Original config is invalid, proceeding anyway")
 
         # At this point, the repository is forked and the configuration is validated
         # and we can do whatever change we want to do
@@ -210,8 +213,6 @@ async def migrate_config(
         if not any(applied):
             logger.info("No migration was applied, nothing else to do")
         elif any(applied) and new_config == config:
-            # Useful if we want to "mark project as migrated" somehow
-            # TODO: Remove because YAGNI?
             logger.info(
                 "At least one migration was applied but configuration did not change, "
                 "nothing else to do"
@@ -223,7 +224,7 @@ async def migrate_config(
             )
 
             yaml_new_config = dump(new_config, Dumper=RTDDumper)
-            migrators_summary = build_migrators_summary(migrators)
+            migrators_summary = build_migrators_summary(migrators, applied)
 
             if not dry_run:
                 await fork_and_update(
@@ -233,6 +234,7 @@ async def migrate_config(
                     tip_sha=tip_sha,
                     new_branch_name=new_branch_name,
                     migrators_summary=migrators_summary,
+                    interactive=interactive,
                     gh=gh,
                 )
             else:
