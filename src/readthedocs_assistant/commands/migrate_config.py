@@ -31,7 +31,7 @@ PULL_REQUEST_BODY_TPL = """Howdy! :wave:
 I am @readthedocs-assistant and I am sending you this pull request to
 upgrade the configuration of your Read the Docs project.
 Your project will continue working whether or not you merge it,
-but I recommended you to take it into consideration.
+but I recommended you take it into consideration.
 
 Also, in case you haven't done it already, remember that you can
 enable the pull request builds for your project
