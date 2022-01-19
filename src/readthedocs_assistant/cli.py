@@ -28,6 +28,7 @@ def parse_migrators(migrator_names_str: str) -> list[Migrator]:
     "--migrator-names", required=True, help="Comma-separated list of migrators"
 )
 @click.option("--run-migration", is_flag=True, default=False)
+@click.option("--interactive/--no-interactive", is_flag=True, default=True)
 @click.option("-d", "--debug", is_flag=True, default=False)
 def main(
     username: str,
@@ -36,6 +37,7 @@ def main(
     repository_name: str,
     migrator_names: str,
     run_migration: bool,
+    interactive: bool,
     debug: bool,
 ) -> None:
     logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
@@ -47,6 +49,7 @@ def main(
             repository_owner,
             repository_name,
             migrators=parse_migrators(migrator_names),
+            interactive=interactive,
             dry_run=not run_migration,
         )
     )

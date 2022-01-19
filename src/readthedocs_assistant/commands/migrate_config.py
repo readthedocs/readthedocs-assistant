@@ -189,6 +189,7 @@ async def migrate_config(
     repository_name: str,
     migrators: list[Migrator],
     new_branch_name: str = "update-rtd-config-assistant",
+    interactive: bool = True,
     dry_run: bool = True,
 ) -> None:
     async with httpx.AsyncClient() as client:
@@ -241,6 +242,7 @@ async def migrate_config(
                     tip_sha=tip_sha,
                     new_branch_name=new_branch_name,
                     migrators_summary=migrators_summary,
+                    interactive=interactive,
                     gh=gh,
                 )
             else:
