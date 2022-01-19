@@ -5,6 +5,7 @@ import re
 import textwrap
 import webbrowser
 from difflib import Differ
+from itertools import zip_longest
 from typing import TYPE_CHECKING, Any
 
 import gidgethub
@@ -61,19 +62,26 @@ def unwrap_text(text: str) -> str:
     return "".join(line.strip() + " " if line else "\n\n" for line in lines)
 
 
-def build_migrators_summary(migrators: list[Migrator]) -> str:
-    migrators_fragments = "\n".join(
-        MIGRATOR_FRAGMENT_TPL.format(
-            migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
-            migrator_description=(
-                textwrap.dedent(migrator.__doc__.split("\n\n", maxsplit=1)[1]).strip()
-            ),
-        )
-        if migrator.__doc__
-        else f"- `{migrator.__class__.__name__}`"
-        for migrator in migrators
+def build_migrators_summary(migrators: list[Migrator], applied: list[bool]) -> str:
+    migrators_fragments = []
+    for migrator, applied in zip_longest(migrators, applied, fillvalue=False):
+        if applied:
+            migrators_fragments.append(
+                MIGRATOR_FRAGMENT_TPL.format(
+                    migrator_one_liner=migrator.__doc__.strip().splitlines()[0].strip(),
+                    migrator_description=(
+                        textwrap.dedent(
+                            migrator.__doc__.split("\n\n", maxsplit=1)[1]
+                        ).strip()
+                    ),
+                )
+                if migrator.__doc__
+                else f"- `{migrator.__class__.__name__}`"
+            )
+
+    return MIGRATOR_SUMMARY_TPL.format(
+        migrators_fragments="\n".join(migrators_fragments)
     )
-    return MIGRATOR_SUMMARY_TPL.format(migrators_fragments=migrators_fragments)
 
 
 async def find_config(repo: Any, tip_sha: str, *, gh: GitHubAPI) -> Any:
@@ -212,8 +220,6 @@ async def migrate_config(
         if not any(applied):
             logger.info("No migration was applied, nothing else to do")
         elif any(applied) and new_config == config:
-            # Useful if we want to "mark project as migrated" somehow
-            # TODO: Remove because YAGNI?
             logger.info(
                 "At least one migration was applied but configuration did not change, "
                 "nothing else to do"
@@ -225,7 +231,7 @@ async def migrate_config(
             )
 
             yaml_new_config = dump(new_config, Dumper=RTDDumper)
-            migrators_summary = build_migrators_summary(migrators)
+            migrators_summary = build_migrators_summary(migrators, applied)
 
             if not dry_run:
                 await fork_and_update(
