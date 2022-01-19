@@ -46,6 +46,32 @@ class Migrator:
             )
 
 
+class FixPythonVersion(Migrator):
+    """Convert the Python version to a string.
+
+    This makes the configuration valid according to the schema
+    and protects you from
+    ["the Python 3.1 problem"](https://dev.to/hugovk/the-python-3-1-problem-85g).
+
+    """
+
+    async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
+        if "version" not in config.get("python", {}):
+            logger.info("No python version is set, nothing to do")
+            return config, False
+
+        python_version = config["python"]["version"]
+        if isinstance(python_version, str):
+            logger.info("Python version already set to string, nothing to do")
+            return config, False
+
+        new_config = config.copy()
+
+        new_config["python"]["version"] = str(new_config["python"]["version"])
+
+        return new_config, True
+
+
 class UseBuildTools(Migrator):
     """Migrate to `build.tools` configuration.
 
