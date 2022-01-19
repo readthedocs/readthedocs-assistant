@@ -106,6 +106,8 @@ class UseMamba(Migrator):
 
     """
 
+    mamba_python_version = "mambaforge-4.10"
+
     async def do_migrate(self, config: RTDConfig) -> tuple[RTDConfig, bool]:
         if config.get("version", 1) < 2:
             raise MigrationError("Config uses V1, migrate to V2 first")
@@ -116,7 +118,11 @@ class UseMamba(Migrator):
             )
 
         python_version = config.get("build", {}).get("tools", {}).get("python", "")
-        if "miniconda" not in python_version:
+        if python_version == self.mamba_python_version:
+            logger.info("Config already uses Mamba, nothing to do")
+            return config, False
+
+        elif "miniconda" not in python_version:
             raise MigrationError(
                 f"Python version set to '{python_version}' instead of Miniconda, "
                 "run UseBuildTools migration first"
@@ -127,6 +133,6 @@ class UseMamba(Migrator):
             return config, False
 
         new_config = config.copy()
-        new_config["build"]["tools"]["python"] = "mambaforge-4.10"
+        new_config["build"]["tools"]["python"] = self.mamba_python_version
 
         return new_config, True
