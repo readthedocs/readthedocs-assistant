@@ -22,7 +22,17 @@ SCHEMA_URL = (
 # TODO: Make indentation configurable
 # TODO: Add one empty line after each config block?
 # TODO: Retain comments?
-SORTED_KEYS = ["version", "build", "sphinx", "python", "method", "path", "extra_requirements", "conda", "formats"]
+SORTED_KEYS = [
+    "version",
+    "build",
+    "sphinx",
+    "python",
+    "method",
+    "path",
+    "extra_requirements",
+    "conda",
+    "formats",
+]
 
 Schema = Dict[str, Any]
 
