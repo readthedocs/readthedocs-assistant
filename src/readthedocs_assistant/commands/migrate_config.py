@@ -163,23 +163,8 @@ async def fork_and_update(
     else:
         logger.info("Browse %s to see the changes", compare_url["html_url"])
 
-    accept = input("Open pull request? (yes/[no]) ") if interactive else "yes"
-    if accept == "yes":
-        pull_request = await gh.post(
-            f"/repos/{forked_repo['full_name']}/pulls",
-            data={
-                "title": "Update Read the Docs configuration",
-                "body": PULL_REQUEST_BODY_TPL.format(
-                    migrators_summary=migrators_summary
-                ),
-                "head": f"{forked_repo['owner']['login']}:{new_branch_name}",
-                "base": forked_repo["default_branch"],
-            },
-        )
-        logger.info("Pull request created: %s", pull_request["html_url"])
-
-    else:
-        logger.warning("Pull request not created")
+    # TODO: Create pull request if permission to write upstream
+    # See https://github.com/readthedocs/readthedocs-assistant/issues/8
 
 
 async def migrate_config(
